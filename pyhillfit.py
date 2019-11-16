@@ -41,6 +41,7 @@ for channel, drug in channels_drugs:
 
         tp = pm.traceplot(trace)
         fig = plt.gcf() # to get the current figure...
-        output_fig = os.path.join(current_output_dir, f"{channel}_{drug}_model_{model_number}.png")
+        fig_file = f"{args.model}_{channel}_{drug}_model_{model_number}.png"
+        output_fig = os.path.join(current_output_dir, fig_file)
         fig.savefig(output_fig) # and save it directly
         
