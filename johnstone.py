@@ -1,8 +1,4 @@
 import pymc3 as pm
-import numpy as np
-import numpy.random as npr
-import matplotlib.pyplot as plt
-plt.style.use("ggplot")
 import doseresponse as dr
 
 hill_lower = 0.
@@ -14,18 +10,19 @@ sigma_shape = 5.
 sigma_mode = 6.
 sigma_rate = (sigma_shape-1) / sigma_mode
 
+n_models = 2
 
-def johnstone(model, iterations, tune, concs, data):
+def model(model_number, iterations, tune, concs, data):
 
     with pm.Model():
     
         # Hill coefficient
-        if model == 1:
+        if model_number == 1:
             h = 1
-        elif model == 2:
+        elif model_number == 2:
             h = pm.Uniform('Hill', lower=hill_lower, upper=hill_upper)
         
-        # pIC50
+        # pIC50 value
         p = pm.Exponential('p', lam=pic50_rate)
         p_shift = pm.Deterministic("pIC50", p + pic50_lower)
         
