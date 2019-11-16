@@ -12,7 +12,7 @@ sigma_rate = (sigma_shape-1) / sigma_mode
 
 n_models = 2
 
-def model(model_number, iterations, tune, concs, data):
+def model(model_number, iterations, tune, concs, responses):
 
     with pm.Model():
     
@@ -32,7 +32,7 @@ def model(model_number, iterations, tune, concs, data):
         
         # Actual data model
         pred = dr.hill_curve(concs, h, p_shift)
-        obs = pm.Normal('y', mu=pred, sigma=s_shift, observed=data)
+        obs = pm.Normal('y', mu=pred, sigma=s_shift, observed=responses)
         
         # Do the inference!
         trace = pm.sample(iterations, tune=tune)

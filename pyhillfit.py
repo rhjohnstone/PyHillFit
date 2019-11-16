@@ -6,11 +6,11 @@ import argparse
 import os
 from importlib import import_module
 
-# TODO - data and model as command line arguments
-#      - basic optimization
+# TODO - basic optimization
+#      - more plots/analysis
+#      - plot dose-response curves from samples
 #      - BF computation
-#      - programmatically import model
-#      - save output to model-specific folder
+#      - double-check requirements.txt
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--input", type=str, help="dose-response data file",
@@ -30,14 +30,14 @@ channels_drugs = data.select_channel_drug(args.all)
 
 iterations = tune = 1000
 for channel, drug in channels_drugs:
-    concs, data = data.load_data(channel, drug)
+    concs, responses = data.load_data(channel, drug)
     current_output_dir = os.path.join(output_dir, channel, drug)
     if not os.path.exists(current_output_dir):
         os.makedirs(current_output_dir)
 
     for model_number in range(1, model.n_models+1):
     
-        trace = model.model(model_number, iterations, tune, concs, data)
+        trace = model.model(model_number, iterations, tune, concs, responses)
 
         tp = pm.traceplot(trace)
         fig = plt.gcf() # to get the current figure...
