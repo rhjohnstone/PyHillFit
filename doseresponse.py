@@ -7,6 +7,10 @@ def hill_curve(x, hill, pic50):
     ic50 = 10**(6-pic50)
     return 100 * ( 1 - 1 / (1 + (x/ic50)**hill) )
 
+def saturated_hil_curve(x, hill, pic50, saturation):
+    ic50 = 10**(6-pic50)
+    return saturation - saturation / (1 + (x/ic50)**hill)
+
 # Data file must be in CSV format with a header line.
 # The columns must be in the same format as col_names, but the names themselves
 # can be different.

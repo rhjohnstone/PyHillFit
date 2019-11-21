@@ -28,7 +28,7 @@ output_dir = os.path.join("output", args.model)
 data = dr.Data(args.input)
 channels_drugs = data.select_channel_drug(args.all)
 
-iterations = tune = 1000
+iterations = tune = 10000
 for channel, drug in channels_drugs:
     concs, responses = data.load_data(channel, drug)
     current_output_dir = os.path.join(output_dir, channel, drug)

@@ -10,7 +10,7 @@ sigma_shape = 5.
 sigma_mode = 6.
 sigma_rate = (sigma_shape-1) / sigma_mode
 
-n_models = 2
+n_models = 3
 
 def model(model_number, iterations, tune, concs, responses):
 
@@ -19,8 +19,13 @@ def model(model_number, iterations, tune, concs, responses):
         # Hill coefficient
         if model_number == 1:
             h = 1
+            sat = 100
         elif model_number == 2:
             h = pm.Uniform('Hill', lower=hill_lower, upper=hill_upper)
+            sat = 100
+        elif model_number == 3:
+            h = pm.Uniform('Hill', lower=hill_lower, upper=hill_upper)
+            sat = pm.Uniform('saturation', lower=0., upper=100.)
         
         # pIC50 value
         p = pm.Exponential('p', lam=pic50_rate)
@@ -31,7 +36,7 @@ def model(model_number, iterations, tune, concs, responses):
         s_shift = pm.Deterministic("$\sigma$", s + sigma_lower)
         
         # Actual data model
-        pred = dr.hill_curve(concs, h, p_shift)
+        pred = dr.saturated_hil_curve(concs, h, p_shift, sat)
         obs = pm.Normal('y', mu=pred, sigma=s_shift, observed=responses)
         
         # Do the inference!
