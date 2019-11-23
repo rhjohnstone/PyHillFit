@@ -48,4 +48,6 @@ def model(model_number, concs, responses):
         pred = dr.per_cent_block(concs, hill, p_shift, sat)
         obs = pm.Normal('y', mu=pred, sigma=s_shift, observed=responses)
         
-    return model
+    remove = ["p", "s"]
+        
+    return model, remove

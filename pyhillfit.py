@@ -32,26 +32,26 @@ from importlib import import_module
 
 module = import_module(args.model)
 
-output_dir = os.path.join("output", args.model)
+data_name = os.path.basename(args.input).split(".")[0]
+output_dir = os.path.join("output", data_name)
 
 for channel, drug in channels_drugs:
     concs, responses = data.load_data(channel, drug)
-    current_output_dir = os.path.join(output_dir, channel, drug)
+    current_output_dir = os.path.join(output_dir, channel, drug, args.model)
     if not os.path.exists(current_output_dir):
         os.makedirs(current_output_dir)
 
-    for model_number in [3]:#range(1, module.n_models+1):
+    for model_number in range(1, module.n_models+1):
     
-        model = module.model(model_number, concs, responses)
+        model, remove = module.model(model_number, concs, responses)
         with model:
             trace = pm.sample(args.iterations, tune=args.iterations)
-
-        trace.remove_values("p")
-        trace.remove_values("s")
+        for p in remove:
+            trace.remove_values(p)
 
         tp = pm.traceplot(trace)
         fig = plt.gcf() # to get the current figure...
-        fig_file = f"{args.model}_{channel}_{drug}_model_{model_number}.png"
+        fig_file = f"{data_name}_{channel}_{drug}_{args.model}_model_{model_number}.png"
         output_fig = os.path.join(current_output_dir, fig_file)
         fig.savefig(output_fig) # and save it directly
         
