@@ -10,6 +10,19 @@ def hill_curve(x, hill, pic50):
 def saturated_hil_curve(x, hill, pic50, saturation):
     ic50 = 10**(6-pic50)
     return saturation - saturation / (1 + (x/ic50)**hill)
+    
+    
+def conductance_scale(x, hill, pic50, saturation):
+    # should it be ec50?
+    ic50 = 10**(6-pic50)
+    return saturation + (1-saturation) / (1 + (x/ic50)**hill)
+
+def per_cent_block(x, hill, pic50, saturation):
+    """If we know the data is in the form of blocks, and that
+    it is an inhibitor, not activator.
+    """
+    return 100 * (1 - conductance_scale(x, hill, pic50, saturation))
+    
 
 # Data file must be in CSV format with a header line.
 # The columns must be in the same format as col_names, but the names themselves
