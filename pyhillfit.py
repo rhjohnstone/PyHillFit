@@ -26,9 +26,12 @@ channels_drugs = data.select_channel_drug(args.all)
 
 # importing here so we don't have to wait to choose channel/drug
 import pymc3 as pm
+import arviz as az
+az.style.use("arviz-darkgrid")
 import matplotlib.pyplot as plt
 plt.style.use("ggplot")
 from importlib import import_module
+
 
 module = import_module(args.model)
 
@@ -41,14 +44,18 @@ for channel, drug in channels_drugs:
     if not os.path.exists(current_output_dir):
         os.makedirs(current_output_dir)
 
-    for model_number in range(1, module.n_models+1):
+    for model_number in [2]:#range(1, module.n_models+1):
     
         model, remove = module.model(model_number, concs, responses)
         with model:
             trace = pm.sample(args.iterations, tune=args.iterations)
         for p in remove:
             trace.remove_values(p)
-
+        pp = az.plot_pair(trace)
+        fig = plt.gcf() # to get the current figure...
+        fig_file = f"pair_{data_name}_{channel}_{drug}_{args.model}_model_{model_number}.png"
+        output_fig = os.path.join(current_output_dir, fig_file)
+        fig.savefig(output_fig) # and save it directly
         tp = pm.traceplot(trace)
         fig = plt.gcf() # to get the current figure...
         fig_file = f"{data_name}_{channel}_{drug}_{args.model}_model_{model_number}.png"
