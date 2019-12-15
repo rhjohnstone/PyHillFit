@@ -1,6 +1,10 @@
 #import numpy as np
 import pandas as pd
 import itertools as it
+import numpy as np
+from math import floor, ceil
+import matplotlib.pyplot as plt
+plt.style.use("ggplot")
 
 #np.seterr("raise")
 def hill_curve(x, hill, pic50):
@@ -64,3 +68,16 @@ class Data:
         data = data[channel_rows & drug_rows]
         return data.conc.values, data.block.values
 
+
+def plot_data(channel, drug, concs, responses):
+    fig, ax = plt.subplots(1, 1, figsize=(4,3))
+    xmin = floor(np.log10(np.min(concs)))
+    xmax = ceil(np.log10(np.max(concs))) + 1
+    ax.set_xscale("log")
+    ax.set_xlim(10**xmin, 10**xmax)
+    ax.set_ylim(0, 100)
+    ax.scatter(concs, responses, edgecolor="k", clip_on=False, zorder=10)
+    ax.set_xlabel(f"{drug} concentration ($\mu$M)")
+    ax.set_ylabel(f"{channel} block (%)")
+    fig.tight_layout()
+    return fig
