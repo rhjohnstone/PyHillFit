@@ -5,3 +5,4 @@
 * Plotting sample dose-response curves, from both Post. and Post. Pred.
 * Another other MCMC analysis figures we want to include
 * Summary statistics / compression? Possibly impractical so save loads of samples from each chain, etc.
+* Add option to model as "channel block" or "conductance scale", and choose the appropriate model/function
