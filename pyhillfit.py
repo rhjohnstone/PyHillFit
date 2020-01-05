@@ -39,6 +39,8 @@ import arviz as az
 import matplotlib.pyplot as plt
 #plt.style.use("ggplot")
 from importlib import import_module
+import numpy as np
+import numpy.random as npr
 
 
 module = import_module(args.model)
@@ -62,7 +64,7 @@ for xchannel, xdrug in channels_drugs:
     #continue
     if args.bf:
         marginal_lls = []
-    for model_number in range(1, module.n_models+1):
+    for model_number in [2,3]:#range(1, module.n_models+1):
     
         model, fs = module.expt_model(model_number, concs, responses)
         #t0 = time()
@@ -70,8 +72,10 @@ for xchannel, xdrug in channels_drugs:
             if args.bf:
                 trace = pm.sample_smc(args.iterations, n_steps=50)
                 marginal_lls.append(model.marginal_likelihood)
+                n_iterations = args.iterations
             else:
                 trace = pm.sample(args.iterations, tune=args.iterations)
+                n_iterations = 4*args.iterations
         #print("TIME TAKEN:", time() - t0, "s")
         trace = {varname: f(trace[varname]) for varname, f in fs.items()}
         pp = az.plot_pair(trace, plot_kwargs={"alpha":0.01})
@@ -85,6 +89,32 @@ for xchannel, xdrug in channels_drugs:
         output_fig = os.path.join(current_output_dir, fig_file)
         fig.savefig(output_fig)
         plt.close()
+        
+        if model_number == 2:
+            fig, ax = plt.subplots(1, 1, figsize=(5,4))
+            ax.set_xscale("log")
+            ax.set_ylim(0, 100)
+            samples = npr.randint(n_iterations, size=500)
+            x = np.logspace(-4, 4, 101)
+            for sample in samples:
+                ax.plot(x, dr.per_cent_block(x, trace["Hill"][sample],
+                                             trace["pIC50"][sample], 0),
+                        color="k", alpha=0.01)
+            fig.savefig("samples2.png")
+            plt.close()
+        elif model_number == 3:
+            fig, ax = plt.subplots(1, 1, figsize=(5,4))
+            ax.set_xscale("log")
+            ax.set_ylim(0, 100)
+            samples = npr.randint(n_iterations, size=500)
+            x = np.logspace(-4, 4, 101)
+            for sample in samples:
+                ax.plot(x, dr.per_cent_block(x, trace["Hill"][sample],
+                                             trace["pIC50"][sample],
+                                             trace["Saturation"][sample]),
+                        color="k", alpha=0.01)
+            fig.savefig("samples3.png")
+            plt.close()
         
         
     #print(time() - T0)
