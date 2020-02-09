@@ -74,6 +74,7 @@ def expt_model(model_number, concs, responses):
         
     
     def dr_model(x, trace, sample, model_number):
+        """For plotting sample dose-response curves after the inference."""
         pic50 = trace["pIC50"][sample]
         if model_number == 1:
             hill = 1

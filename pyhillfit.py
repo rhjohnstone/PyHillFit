@@ -42,13 +42,10 @@ from importlib import import_module
 import numpy as np
 import numpy.random as npr
 
-
 module = import_module(args.model)
 
 data_name = os.path.basename(args.input).split(".")[0]
 output_dir = os.path.join("output", data_name)
-
-#T0 = time()
 
 for xchannel, xdrug in channels_drugs:
     concs, responses = data.load_data(xchannel, xdrug)
@@ -61,13 +58,10 @@ for xchannel, xdrug in channels_drugs:
     fig = dr.plot_data(channel, drug, concs, responses)
     fig.savefig(data_plot_f)
     plt.close()
-    #continue
     if args.bf:
         marginal_lls = []
     for model_number in range(1, module.n_models+1):
-    
         model, fs, dr_model = module.expt_model(model_number, concs, responses)
-        #t0 = time()
         with model:
             if args.bf:
                 trace = pm.sample_smc(args.iterations, n_steps=50)
@@ -76,7 +70,6 @@ for xchannel, xdrug in channels_drugs:
             else:
                 trace = pm.sample(args.iterations, tune=args.iterations)
                 n_iterations = 4*args.iterations
-        #print("TIME TAKEN:", time() - t0, "s")
         trace = {varname: f(trace[varname]) for varname, f in fs.items()}
         pp = az.plot_pair(trace, plot_kwargs={"alpha":0.01})
         fig = plt.gcf()
@@ -104,9 +97,6 @@ for xchannel, xdrug in channels_drugs:
         fig.savefig(output_fig)
         plt.close()
         
-        
-    #print(time() - T0)
-            
     if args.bf:
         bf_file = f"{data_name}_{channel}_{drug}_{args.model}_BFs.txt"
         output_file = os.path.join(current_output_dir, bf_file)
@@ -116,4 +106,3 @@ for xchannel, xdrug in channels_drugs:
                 line = f"B{j+1}{i+1} = {marginal_lls[j] / marginal_lls[i]}"
                 print(line)
                 outf.write(f"{line}\n")
-    

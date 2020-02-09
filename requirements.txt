@@ -1,3 +1,4 @@
+arviz
 matplotlib
 numpy
 pymc3
