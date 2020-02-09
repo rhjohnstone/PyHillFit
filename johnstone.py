@@ -47,38 +47,43 @@ def expt_model(model_number, concs, responses):
         if model_number == 1:
             hill = 1
             sat = 0
-            #keep = ["pIC50", "$\sigma$"]
             fs = {"pIC50": f_pic50, "$\sigma$": f_sigma}
         elif model_number == 2:
-            #hill = pm.Uniform('Hill', lower=hill_lower, upper=hill_upper)
             loghill = pm.Logistic("Hill", mu=loghill_mu, s=loghill_s)
-            #hill = pm.Deterministic("Hill", pm.math.exp(loghill))
             hill = pm.math.exp(loghill)
             sat = 0
-            #keep = ["pIC50", "$\sigma$", "Hill"]
             fs = {"pIC50": f_pic50, "$\sigma$": f_sigma, "Hill": f_hill}
         elif model_number == 3:
-            #hill = pm.Uniform('Hill', lower=hill_lower, upper=hill_upper)
             loghill = pm.Logistic("Hill", mu=loghill_mu, s=loghill_s)
-            #hill = pm.Deterministic("Hill", pm.math.exp(loghill))
             hill = pm.math.exp(loghill)
             sat = pm.Uniform("Saturation", lower=sat_lower, upper=sat_upper)
-            #keep = ["pIC50", "$\sigma$", "Hill", "Saturation"]
             fs = {"pIC50": f_pic50, "$\sigma$": f_sigma, "Hill": f_hill,
                   "Saturation": f_sat}
         
         # pIC50 value
         p = pm.Exponential("pIC50", lam=pic50_rate)
-        #p_shift = pm.Deterministic("pIC50", p + pic50_lower)
         p_shift = f_pic50(p)
         
         # Noise standard deviation sigma
         s = pm.Gamma("$\sigma$", alpha=sigma_shape, beta=sigma_rate)
-        #s_shift = pm.Deterministic("$\sigma$", s + sigma_lower)
         s_shift = f_sigma(s)
         
         # Actual data model
         pred = dr.per_cent_block(concs, hill, p_shift, sat)
         obs = pm.Normal("y", mu=pred, sigma=s_shift, observed=responses)
         
-    return model, fs
+    
+    def dr_model(x, trace, sample, model_number):
+        pic50 = trace["pIC50"][sample]
+        if model_number == 1:
+            hill = 1
+            saturation = 0
+        elif model_number == 2:
+            hill = trace["Hill"][sample]
+            saturation = 0
+        elif model_number == 3:
+            hill = trace["Hill"][sample]
+            saturation = trace["Saturation"][sample]
+        return dr.per_cent_block(x, hill, pic50, saturation)
+        
+    return model, fs, dr_model

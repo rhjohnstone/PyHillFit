@@ -64,9 +64,9 @@ for xchannel, xdrug in channels_drugs:
     #continue
     if args.bf:
         marginal_lls = []
-    for model_number in [2,3]:#range(1, module.n_models+1):
+    for model_number in range(1, module.n_models+1):
     
-        model, fs = module.expt_model(model_number, concs, responses)
+        model, fs, dr_model = module.expt_model(model_number, concs, responses)
         #t0 = time()
         with model:
             if args.bf:
@@ -90,36 +90,30 @@ for xchannel, xdrug in channels_drugs:
         fig.savefig(output_fig)
         plt.close()
         
-        if model_number == 2:
-            fig, ax = plt.subplots(1, 1, figsize=(5,4))
-            ax.set_xscale("log")
-            ax.set_ylim(0, 100)
-            samples = npr.randint(n_iterations, size=500)
-            x = np.logspace(-4, 4, 101)
-            for sample in samples:
-                ax.plot(x, dr.per_cent_block(x, trace["Hill"][sample],
-                                             trace["pIC50"][sample], 0),
-                        color="k", alpha=0.01)
-            fig.savefig("samples2.png")
-            plt.close()
-        elif model_number == 3:
-            fig, ax = plt.subplots(1, 1, figsize=(5,4))
-            ax.set_xscale("log")
-            ax.set_ylim(0, 100)
-            samples = npr.randint(n_iterations, size=500)
-            x = np.logspace(-4, 4, 101)
-            for sample in samples:
-                ax.plot(x, dr.per_cent_block(x, trace["Hill"][sample],
-                                             trace["pIC50"][sample],
-                                             trace["Saturation"][sample]),
-                        color="k", alpha=0.01)
-            fig.savefig("samples3.png")
-            plt.close()
+        fig, ax = plt.subplots(1, 1, figsize=(5,4))
+        ax.set_xscale("log")
+        ax.set_ylim(0, 100)
+        samples = npr.randint(n_iterations, size=500)
+        x = np.logspace(-4, 4, 101)
+        for sample in samples:
+            fig_file = f"{data_name}_{channel}_{drug}_{args.model}_model_{model_number}_sample_curves.png"
+            output_fig = os.path.join(current_output_dir, fig_file)
+            
+            ax.plot(x, dr_model(x, trace, sample, model_number),
+                    color="k", alpha=0.01)
+        fig.savefig(output_fig)
+        plt.close()
         
         
     #print(time() - T0)
             
     if args.bf:
-        for i, j in it.combinations(range(module.n_models), r=2):
-            print(f"B{j+1}{i+1} = {marginal_lls[j] / marginal_lls[i]}")
+        bf_file = f"{data_name}_{channel}_{drug}_{args.model}_BFs.txt"
+        output_file = os.path.join(current_output_dir, bf_file)
+        with open(output_file, "w") as outf:
+            outf.write("Bayes Factors\n")
+            for i, j in it.combinations(range(module.n_models), r=2):
+                line = f"B{j+1}{i+1} = {marginal_lls[j] / marginal_lls[i]}"
+                print(line)
+                outf.write(f"{line}\n")
     
