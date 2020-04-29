@@ -71,12 +71,13 @@ for xchannel, xdrug in channels_drugs:
                 trace = pm.sample(args.iterations, tune=args.iterations)
                 n_iterations = 4*args.iterations
         trace = {varname: f(trace[varname]) for varname, f in fs.items()}
-        pp = az.plot_pair(trace, plot_kwargs={"alpha":0.01})
+        pp = pm.pairplot(trace, plot_kwargs={"alpha":0.01})
         fig = plt.gcf()
         fig_file = f"{data_name}_{channel}_{drug}_{args.model}_model_{model_number}_pair.png"
         output_fig = os.path.join(current_output_dir, fig_file)
         fig.savefig(output_fig)
-        tp = az.plot_trace(trace)
+        
+        tp = pm.plot_posterior(trace, credible_interval=0.95)
         fig = plt.gcf()
         fig_file = f"{data_name}_{channel}_{drug}_{args.model}_model_{model_number}_trace.png"
         output_fig = os.path.join(current_output_dir, fig_file)
@@ -88,9 +89,9 @@ for xchannel, xdrug in channels_drugs:
         ax.set_ylim(0, 100)
         samples = npr.randint(n_iterations, size=500)
         x = np.logspace(-4, 4, 101)
+        fig_file = f"{data_name}_{channel}_{drug}_{args.model}_model_{model_number}_sample_curves.png"
+        output_fig = os.path.join(current_output_dir, fig_file)
         for sample in samples:
-            fig_file = f"{data_name}_{channel}_{drug}_{args.model}_model_{model_number}_sample_curves.png"
-            output_fig = os.path.join(current_output_dir, fig_file)
             
             ax.plot(x, dr_model(x, trace, sample, model_number),
                     color="k", alpha=0.01)
