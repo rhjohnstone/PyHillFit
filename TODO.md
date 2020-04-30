@@ -8,3 +8,5 @@
 * Summary statistics / compression? Possibly impractical to save loads of samples from each chain, etc.
 * Add option to model as "channel block" or "conductance scale", and choose the appropriate model/function
 * Possibly move some stuff into separate files, e.g. plotting
+* pm.model_to_graphviz(model)
+
