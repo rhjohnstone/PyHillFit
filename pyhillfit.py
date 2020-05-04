@@ -6,13 +6,8 @@ import itertools as it
 from time import time
 
 # TODO - basic optimization
-#      - more plots/analysis
-#      - plot dose-response curves from samples
-#      - BF computation
+#      - add documentation
 #      - double-check requirements.txt
-#      - for now, revert back to saving all parameters then getting rid of
-#        the unshifted ones. later, maybe, if I want to use my own plotting
-#        tools, can save only unshifted parameters, then shift before analysis
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--input", type=str, help="dose-response data file",
@@ -41,66 +36,74 @@ import matplotlib.pyplot as plt
 from importlib import import_module
 import numpy as np
 import numpy.random as npr
+import plots
 
 module = import_module(args.model)
 
 data_name = os.path.basename(args.input).split(".")[0]
-output_dir = os.path.join("output", data_name)
+all_output_dir = os.path.join("output", data_name)
 
 for xchannel, xdrug in channels_drugs:
-    concs, responses = data.load_data(xchannel, xdrug)
+    expt_labels, concs, responses = data.load_data(xchannel, xdrug)
+    
     channel = xchannel.replace("/", "_").replace("\\", "_")
     drug = xdrug.replace("/", "_").replace("\\", "_")
-    current_output_dir = os.path.join(output_dir, channel, drug, args.model)
-    if not os.path.exists(current_output_dir):
-        os.makedirs(current_output_dir)
-    data_plot_f = os.path.join(current_output_dir, f"{data_name}_{channel}_{drug}_data.png")
-    fig = dr.plot_data(channel, drug, concs, responses)
-    fig.savefig(data_plot_f)
-    plt.close()
+    output_dir = os.path.join(all_output_dir, channel, drug, args.model)
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+    fig_prefix_0 = f"{data_name}_{channel}_{drug}"
+    plots.plot_data(output_dir, fig_prefix_0, channel, drug, expt_labels, concs,
+                    responses)
+    
     if args.bf:
         marginal_lls = []
     for model_number in range(1, module.n_models+1):
-        model, fs, dr_model = module.expt_model(model_number, concs, responses)
+        print("Model", model_number)
+        fig_prefix = f"{fig_prefix_0}_model_{model_number}"
+        model, remove, get_sample = module.expt_model(model_number, concs,
+                                                  responses, expt_labels)
+        try:
+            # Draw the plate diagram of the statistical model.
+            # This is good to check that the model looks how it should.
+            # However, because of transformations of some variables, it is
+            # rather cluttered, so I recommend drawing your own cleaner version
+            # if you plan to publish it somewhere.
+            graph = pm.model_to_graphviz(model)
+            graph.render(os.path.join(output_dir,
+                                      f"model_{model_number}_graph"))
+        except:
+            print("Can't render graph: graphviz (Python and/or system) is not"
+                  + " installed.")
         with model:
             if args.bf:
                 trace = pm.sample_smc(args.iterations, n_steps=50)
                 marginal_lls.append(model.marginal_likelihood)
                 n_iterations = args.iterations
             else:
-                trace = pm.sample(args.iterations, tune=args.iterations)
                 n_iterations = 4*args.iterations
-        trace = {varname: f(trace[varname]) for varname, f in fs.items()}
-        pp = pm.pairplot(trace, plot_kwargs={"alpha":0.01})
-        fig = plt.gcf()
-        fig_file = f"{data_name}_{channel}_{drug}_{args.model}_model_{model_number}_pair.png"
-        output_fig = os.path.join(current_output_dir, fig_file)
-        fig.savefig(output_fig)
+                trace = pm.sample(args.iterations, tune=args.iterations)
+            for name in remove:
+                trace.remove_values(name)
         
-        tp = pm.plot_posterior(trace, credible_interval=0.95)
-        fig = plt.gcf()
-        fig_file = f"{data_name}_{channel}_{drug}_{args.model}_model_{model_number}_trace.png"
-        output_fig = os.path.join(current_output_dir, fig_file)
-        fig.savefig(output_fig)
-        plt.close()
+        if 1 <= model_number <= 3:
+            samples = npr.randint(n_iterations, size=600)
+            plots.plot_sample_curves_pooled(output_dir, fig_prefix, channel, drug,
+                                            expt_labels, concs, responses,
+                                            model_number, samples, get_sample,
+                                            trace)
         
-        fig, ax = plt.subplots(1, 1, figsize=(5,4))
-        ax.set_xscale("log")
-        ax.set_ylim(0, 100)
-        samples = npr.randint(n_iterations, size=500)
-        x = np.logspace(-4, 4, 101)
-        fig_file = f"{data_name}_{channel}_{drug}_{args.model}_model_{model_number}_sample_curves.png"
-        output_fig = os.path.join(current_output_dir, fig_file)
-        for sample in samples:
-            
-            ax.plot(x, dr_model(x, trace, sample, model_number),
-                    color="k", alpha=0.01)
-        fig.savefig(output_fig)
-        plt.close()
+        # Change data type to avoid pesky warning when plotting the rest
+        trace = az.from_pymc3(trace, log_likelihood=False)
+        
+        # Save pair plots without displaying
+        plots.plot_pairs(output_dir, fig_prefix, trace)
+        
+        # Save posterior KDE plots without displaying
+        plots.plot_kdes(output_dir, fig_prefix, trace)
         
     if args.bf:
         bf_file = f"{data_name}_{channel}_{drug}_{args.model}_BFs.txt"
-        output_file = os.path.join(current_output_dir, bf_file)
+        output_file = os.path.join(output_dir, bf_file)
         with open(output_file, "w") as outf:
             outf.write("Bayes Factors\n")
             for i, j in it.combinations(range(module.n_models), r=2):

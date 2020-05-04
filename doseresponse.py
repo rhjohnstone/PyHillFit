@@ -3,8 +3,20 @@ import pandas as pd
 import itertools as it
 import numpy as np
 from math import floor, ceil
-import matplotlib.pyplot as plt
-plt.style.use("ggplot")
+
+
+def encode_labels(input):
+    current = 0
+    labels = dict()
+    output = []
+    for x in input:
+        label = labels.get(x, current)
+        if label == current:
+            labels[x] = current
+            current += 1
+        output.append(label)
+    return np.array(output)
+
 
 #np.seterr("raise")
 def hill_curve(x, hill, pic50):
@@ -45,8 +57,8 @@ class Data:
         Alternatively, if run_all=True, select all channel/drug combinations.
         """
         data = pd.read_csv(self.f, header=0, names=col_names)
-        channels = sorted(data.channel.unique().tolist())
-        drugs = sorted(data.drug.unique().tolist())
+        channels = sorted(data["channel"].unique().tolist())
+        drugs = sorted(data["drug"].unique().tolist())
         if run_all:
             return it.product(channels, drugs)
         else:
@@ -63,21 +75,12 @@ class Data:
 
     def load_data(self, channel, drug):
         data = pd.read_csv(self.f, header=0, names=col_names)
-        channel_rows = (data.channel == channel)
-        drug_rows = (data.drug == drug)
-        data = data[channel_rows & drug_rows]
-        return data.conc.values, data.block.values
+        channel_rows = (data["channel"] == channel)
+        drug_rows = (data["drug"] == drug)
+        data = data[channel_rows & drug_rows].drop(columns=["channel", "drug"])
+        expts, concs, responses = data.values.T
+        expt_labels = encode_labels(expts)
+        return expt_labels, concs, responses
 
 
-def plot_data(channel, drug, concs, responses):
-    fig, ax = plt.subplots(1, 1, figsize=(4,3))
-    xmin = floor(np.log10(np.min(concs)))
-    xmax = ceil(np.log10(np.max(concs))) + 1
-    ax.set_xscale("log")
-    ax.set_xlim(10**xmin, 10**xmax)
-    ax.set_ylim(0, 100)
-    ax.scatter(concs, responses, edgecolor="k", clip_on=False, zorder=10)
-    ax.set_xlabel(f"{drug} concentration ($\mu$M)")
-    ax.set_ylabel(f"{channel} block (%)")
-    fig.tight_layout()
-    return fig
+
