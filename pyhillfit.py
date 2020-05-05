@@ -8,7 +8,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--input", type=str, help="dose-response data file",
                     default=os.path.join("data", "crumb.csv"))
 parser.add_argument("--model", type=str, help="probabilistic model definition",
-                    default="johnstone2")
+                    default="johnstone")
 parser.add_argument("--all", action="store_true",
                     help="run all channel/drug combinations")
 parser.add_argument("--bf", action="store_true",
