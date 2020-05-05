@@ -63,11 +63,11 @@ for xchannel, xdrug in channels_drugs:
         model, remove, get_sample = module.expt_model(model_number, concs,
                                                   responses, expt_labels)
         try:
-            # Draw the plate diagram of the statistical model.
-            # This is good to check that the model looks how it should.
-            # However, because of transformations of some variables, it is
-            # rather cluttered, so I recommend drawing your own cleaner version
-            # if you plan to publish it somewhere.
+            # Draw the plate diagram of the statistical model. This is good to
+            # check that the model looks how it should. However, because of
+            # transformations of some variables, it is rather cluttered, so I
+            # recommend drawing your own cleaner version if you plan to publish
+            # it somewhere.
             graph = pm.model_to_graphviz(model)
             graph.render(os.path.join(output_dir,
                                       f"model_{model_number}_graph"))
@@ -86,6 +86,8 @@ for xchannel, xdrug in channels_drugs:
                 trace.remove_values(name)
         
         if 1 <= model_number <= 3:
+            # Because of how PyMC3 handles parameters in hierarchical models,
+            # we need to sample from them differently.
             samples = npr.randint(n_iterations, size=600)
             plots.plot_sample_curves_pooled(output_dir, fig_prefix, channel, drug,
                                             expt_labels, concs, responses,
@@ -102,6 +104,8 @@ for xchannel, xdrug in channels_drugs:
         plots.plot_kdes(output_dir, fig_prefix, trace)
         
     if args.bf:
+        # Compute and save all model pair Bayes Factors, which approximate
+        # relative likelihood of two different models given the same data.
         bf_file = f"{data_name}_{channel}_{drug}_{args.model}_BFs.txt"
         output_file = os.path.join(output_dir, bf_file)
         with open(output_file, "w") as outf:

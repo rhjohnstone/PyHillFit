@@ -66,39 +66,26 @@ beta_lower = 2
 beta_shape = 2.5
 beta_rate = gamma_distn_rate(beta_shape, beta_mode, beta_lower)
 
-# Many of these are just shifts, can we make one general f_shift?
-def f_pic50(p):
-    return p + pic50_lower
-
-def f_sigma(sigma):
-    return sigma + sigma_lower
-
-def f_hill(loghill):
-    return np.exp(loghill)
-
-def f_mu(mu):
-    return mu + mu_lower
-
-def f_s(s):
-    return s + s_lower
-
-def f_identity(x):
-    return x
-
-def f_shift_up(x, lower):
-    return x + lower
-
 
 def expt_model(model_number, concs, responses, expt_labels):
+    """
+    Define all statistical models in here. Take care of what you want to be
+    consistent across all models (e.g. an observation noise model, data
+    likelihood model, etc.).
+    
+    You can use numpy.arrays of data, but not numpy operations when
+    transforming variables, etc., because PyMC3 uses Theano tensors.
+    """
+
+
     n_expts = expt_labels.max() + 1
 
     with pm.Model() as model:
 
         
-        # Noise standard deviation sigma
+        # Noise standard deviation sigma, shared by all models.
         sigma = pm.Gamma("xsigma", alpha=sigma_shape, beta=sigma_rate)
-        sigma_shift = pm.Deterministic(r"$\sigma$", f_shift_up(sigma,
-                                                               sigma_lower))
+        sigma_shift = pm.Deterministic(r"$\sigma$", sigma + sigma_lower)
     
         if model_number == 1:
             pic50 = pm.Exponential("xpIC50", lam=pic50_rate)
@@ -124,35 +111,44 @@ def expt_model(model_number, concs, responses, expt_labels):
             hill = 1
             sat = 0
             mu = pm.Gamma("xmu", alpha=mu_shape, beta=mu_rate)
-            mu_shift = pm.Deterministic(r"$\mu$", f_shift_up(mu, mu_lower))
+            mu_shift = pm.Deterministic(r"$\mu$", mu + mu_lower)
             s = pm.Gamma("xs", alpha=s_shape, beta=s_rate)
-            s_shift = pm.Deterministic("s", f_shift_up(s, s_lower))
+            s_shift = pm.Deterministic("s", s + s_lower)
             pic50 = pm.Logistic("pIC50", mu=mu_shift, s=s_shift, shape=n_expts)
             pic50_shift = pic50[expt_labels]
             remove = ["xsigma", "xmu", "xs"]
         elif model_number == 5:
             sat = 0
             mu = pm.Gamma("xmu", alpha=mu_shape, beta=mu_rate)
-            mu_shift = pm.Deterministic(r"$\mu$", f_shift_up(mu, mu_lower))
+            mu_shift = pm.Deterministic(r"$\mu$", mu + mu_lower)
             s = pm.Gamma("xs", alpha=s_shape, beta=s_rate)
-            s_shift = pm.Deterministic("s", f_shift_up(s, s_lower))
+            s_shift = pm.Deterministic("s", s + s_lower)
             pic50 = pm.Logistic("pIC50", mu=mu_shift, s=s_shift, shape=n_expts)
             pic50_shift = pic50[expt_labels]
             
             alpha = pm.Gamma(r"$\alpha$", alpha=alpha_shape, beta=alpha_rate)
             beta = pm.Gamma("xbeta", alpha=beta_shape, beta=beta_rate)
-            beta_shift = pm.Deterministic(r"$\beta$", f_shift_up(beta, beta_lower))
-            loghill = pm.Logistic("xlogHill", mu=alpha, s=beta_shift, shape=n_expts)
+            beta_shift = pm.Deterministic(r"$\beta$", beta + beta_lower)
+            loghill = pm.Logistic("xlogHill", mu=alpha, s=beta_shift,
+                                  shape=n_expts)
             xhill = pm.Deterministic("Hill", pm.math.exp(loghill))
             hill = xhill[expt_labels]
             
             remove = ["xsigma", "xmu", "xs", "xbeta", "xlogHill"]
         
-        # Actual data model
+        # Data likelihood, shared by all models.
         pred = dr.per_cent_block(concs, hill, pic50_shift, sat)
         obs = pm.Normal("y", mu=pred, sigma=sigma_shift, observed=responses)
         
     def get_sample(model_number, trace, sample):
+        """
+        When we want to plot sample dose-response curves, or make predictions
+        later, we need to subsample our chains. But the existence of certain
+        parameter chains depends on our model definition, so we need to tell it
+        when to look for a parameter or when to give it a default value. We
+        could use a try/except block, but we know there will be a lot of fails,
+        so we'll just check which model it is.
+        """
         pic50 = trace["pIC50"][sample]
         if model_number == 1:
             hill = 1
