@@ -2,6 +2,8 @@
 
 Bayesian inference on dose-response (concentration-effect) data.
 
-Also allows for Bayes Factor computation to compare models.
+Quantify and propagate uncertainty in dose-response modelling.
 
-Need to write a proper README...
+Compute Bayes Factor to compare statistical models.
+
+## Quickstart
