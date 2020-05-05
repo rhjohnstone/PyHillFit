@@ -15,7 +15,7 @@ First install dependencies:
 
 Run default experiment (`johnstone`) on default data (`crumb`):
 
-`python pyhillfit.py`
+`python pyhillfit.py --bf` (I'll probably make `--bf` (compute Bayes Factors for all pairs of models) default soon.)
 
 and select a channel and drug from the menu when prompted. I like hERG (7) and Amiodarone (1).
 
