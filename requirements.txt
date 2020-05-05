@@ -1,4 +1,5 @@
 arviz
 matplotlib
 numpy
+pandas
 pymc3
