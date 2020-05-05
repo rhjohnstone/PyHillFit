@@ -8,6 +8,13 @@ import arviz as az
 
 def plot_data(output_dir, fig_prefix, channel, drug, expt_labels, concs,
               responses):
+    """
+    Simple scatter plot of ion channel screening data.
+    
+    Different experiments (repeats) are plotted in different colours just so we
+    can check for inter-experiment patterns, e.g. one particular experiment
+    might consistently have higher measurements than other experiments.
+    """
     fig_file = f"{fig_prefix}_data.png"
     f_out = os.path.join(output_dir, fig_file)
     fig, ax = plt.subplots(1, 1, figsize=(5, 4))
@@ -30,6 +37,7 @@ def plot_data(output_dir, fig_prefix, channel, drug, expt_labels, concs,
 
 
 def plot_pairs(output_dir, fig_prefix, trace):
+    """Marginal 2-d scatter plots of all parameter pairs."""
     pp = az.plot_pair(trace, plot_kwargs={"alpha":0.01})
     fig = plt.gcf()
     fig_file = f"{fig_prefix}_pairs.png"
@@ -39,6 +47,7 @@ def plot_pairs(output_dir, fig_prefix, trace):
 
 
 def plot_kdes(output_dir, fig_prefix, trace):
+    """KDE plots of marginal posterior distributions."""
     tp = az.plot_posterior(trace, credible_interval=0.95)
     fig = plt.gcf()
     fig_file = f"{fig_prefix}_kdes.png"
@@ -50,6 +59,15 @@ def plot_kdes(output_dir, fig_prefix, trace):
 def plot_sample_curves_pooled(output_dir, fig_prefix, channel, drug,
                               expt_labels, concs, responses, model_number,
                               samples, get_sample, trace):
+    """
+    Draw samples from posterior distribution (from the chain, really) and
+    plot dose-response curves, constructing a probability distribution of the
+    'true' dose-response behaviour.
+    
+    Need to pass the function get_sample as an argument so it knows how to
+    sample parameters that aren't there. This was done to try and keep the
+    model definition script as separate as possible from the rest.
+    """
     fig_file = f"{fig_prefix}_sample_curves.png"
     f_out = os.path.join(output_dir, fig_file)
     fig, ax = plt.subplots(1, 1, figsize=(5, 4))
