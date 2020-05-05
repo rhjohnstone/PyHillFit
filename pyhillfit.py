@@ -7,7 +7,7 @@ import itertools as it
 parser = argparse.ArgumentParser()
 parser.add_argument("--input", type=str, help="dose-response data file",
                     default=os.path.join("data", "crumb.csv"))
-parser.add_argument("--model", type=str, help="probabilistic model definition",
+parser.add_argument("--experiment", type=str, help="probabilistic model definition",
                     default="johnstone")
 parser.add_argument("--all", action="store_true",
                     help="run all channel/drug combinations")
@@ -29,7 +29,7 @@ from importlib import import_module
 import numpy.random as npr
 import plots
 
-module = import_module(args.model)
+module = import_module(args.experiment)
 
 data_name = os.path.basename(args.input).split(".")[0]
 all_output_dir = os.path.join("output", data_name)
@@ -39,7 +39,7 @@ for xchannel, xdrug in channels_drugs:
     
     channel = xchannel.replace("/", "_").replace("\\", "_")
     drug = xdrug.replace("/", "_").replace("\\", "_")
-    output_dir = os.path.join(all_output_dir, channel, drug, args.model)
+    output_dir = os.path.join(all_output_dir, channel, drug, args.experiment)
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
     fig_prefix_0 = f"{data_name}_{channel}_{drug}"
@@ -71,8 +71,8 @@ for xchannel, xdrug in channels_drugs:
                 marginal_lls.append(model.marginal_likelihood)
                 n_iterations = args.iterations
             else:
-                n_iterations = 4*args.iterations
                 trace = pm.sample(args.iterations, tune=args.iterations)
+                n_iterations = trace.nchains * args.iterations
             for name in remove:
                 trace.remove_values(name)
         
@@ -93,7 +93,7 @@ for xchannel, xdrug in channels_drugs:
     if args.bf:
         # Compute and save all model pair Bayes Factors, which approximate
         # relative likelihood of two different models given the same data.
-        bf_file = f"{data_name}_{channel}_{drug}_{args.model}_BFs.txt"
+        bf_file = f"{data_name}_{channel}_{drug}_{args.experiment}_BFs.txt"
         output_file = os.path.join(output_dir, bf_file)
         with open(output_file, "w") as outf:
             outf.write("Bayes Factors\n")
