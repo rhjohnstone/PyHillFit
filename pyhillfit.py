@@ -97,7 +97,7 @@ for xchannel, xdrug in channels_drugs:
         output_file = os.path.join(output_dir, bf_file)
         with open(output_file, "w") as outf:
             outf.write("Bayes Factors\n")
-            for i, j in it.combinations(range(module.n_models), r=2):
+            for i, j in it.combinations(range(experiment.n_models), r=2):
                 line = f"B{j+1}{i+1} = {marginal_lls[j] / marginal_lls[i]}"
                 print(line)
                 outf.write(f"{line}\n")
