@@ -1,19 +1,14 @@
 import doseresponse as dr
 import argparse
 import os
-import sys
 import itertools as it
-from time import time
 
-# TODO - basic optimization
-#      - add documentation
-#      - double-check requirements.txt
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--input", type=str, help="dose-response data file",
                     default=os.path.join("data", "crumb.csv"))
 parser.add_argument("--model", type=str, help="probabilistic model definition",
-                    default="johnstone")
+                    default="johnstone2")
 parser.add_argument("--all", action="store_true",
                     help="run all channel/drug combinations")
 parser.add_argument("--bf", action="store_true",
@@ -27,14 +22,10 @@ data = dr.Data(args.input)
 channels_drugs = data.select_channel_drug(args.all)
 
 
-# importing here so we don't have to wait before choosing channel/drug
+# Importing here so we don't have to wait before choosing channel/drug
 import pymc3 as pm
 import arviz as az
-#az.style.use("arviz-darkgrid")
-import matplotlib.pyplot as plt
-#plt.style.use("ggplot")
 from importlib import import_module
-import numpy as np
 import numpy.random as npr
 import plots
 
@@ -54,14 +45,14 @@ for xchannel, xdrug in channels_drugs:
     fig_prefix_0 = f"{data_name}_{channel}_{drug}"
     plots.plot_data(output_dir, fig_prefix_0, channel, drug, expt_labels, concs,
                     responses)
+    experiment = module.Experiment(channel, drug, concs, responses, expt_labels)
     
     if args.bf:
         marginal_lls = []
-    for model_number in range(1, module.n_models+1):
+    for model_number in range(1, experiment.n_models+1):
         print("Model", model_number)
         fig_prefix = f"{fig_prefix_0}_model_{model_number}"
-        model, remove, get_sample = module.expt_model(model_number, concs,
-                                                  responses, expt_labels)
+        model, remove = experiment.build_model(model_number)
         try:
             # Draw the plate diagram of the statistical model. This is good to
             # check that the model looks how it should. However, because of
@@ -85,14 +76,10 @@ for xchannel, xdrug in channels_drugs:
             for name in remove:
                 trace.remove_values(name)
         
-        if 1 <= model_number <= 3:
-            # Because of how PyMC3 handles parameters in hierarchical models,
-            # we need to sample from them differently.
-            samples = npr.randint(n_iterations, size=600)
-            plots.plot_sample_curves_pooled(output_dir, fig_prefix, channel, drug,
-                                            expt_labels, concs, responses,
-                                            model_number, samples, get_sample,
-                                            trace)
+        # Plot sample dose-response curves from inference samples
+        samples = npr.randint(n_iterations, size=600)
+        experiment.plot_sample_curves(output_dir, fig_prefix, model_number,
+                                      samples, trace)
         
         # Change data type to avoid pesky warning when plotting the rest
         trace = az.from_pymc3(trace, log_likelihood=False)

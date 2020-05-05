@@ -2,13 +2,21 @@ import pymc3 as pm
 import doseresponse as dr
 import numpy as np
 from functools import partial
+import os
+import matplotlib.pyplot as plt
+from math import floor, ceil
+
+
+# Different statistical models that we want to compare.
+# All different models need to be fully described here, and we also need to
+# specify how many models there are in the Experiment class.
+# All prior (hyper)parameters are defined outside of the Experiment class to
+# ensure they are shared by all (relevant) models.
 
 
 def gamma_distn_rate(shape, mode, lower):
     return (shape - 1) / (mode - lower)
 
-
-n_models = 5
 
 # Uniform Hill prior
 loghill_lower = 0.
@@ -68,8 +76,7 @@ beta_lower = 2
 beta_shape = 2.5
 beta_rate = gamma_distn_rate(beta_shape, beta_mode, beta_lower)
 
-
-def expt_model(model_number, concs, responses, expt_labels):
+class Experiment:
     """
     Define all statistical models in here. Take care of what you want to be
     consistent across all models (e.g. an observation noise model, data
@@ -91,101 +98,154 @@ def expt_model(model_number, concs, responses, expt_labels):
     we may have to revisit these alternatives. But I believe the current
     solution has the best balance for now.
     """
-    n_expts = expt_labels.max() + 1
-    with pm.Model() as model:
+    def __init__(self, channel, drug, concs, responses, expt_labels):
+        self.channel = channel
+        self.drug = drug
+        self.n_models = 6  # Need to manually specify
+        self.concs = concs
+        self.responses = responses
+        self.expt_labels = expt_labels
+        self.n_expts = expt_labels.max() + 1
+    def build_model(self, model_number):
+        with pm.Model() as model:
+            # Noise standard deviation sigma, shared by all models.
+            sigma = pm.Gamma("xsigma", alpha=sigma_shape, beta=sigma_rate)
+            sigma_shift = pm.Deterministic(r"$\sigma$", sigma + sigma_lower)
         
-        # Noise standard deviation sigma, shared by all models.
-        sigma = pm.Gamma("xsigma", alpha=sigma_shape, beta=sigma_rate)
-        sigma_shift = pm.Deterministic(r"$\sigma$", sigma + sigma_lower)
+            if model_number == 1:  # Single-level
+                pic50 = pm.Exponential("xpIC50", lam=pic50_rate)
+                pic50_shift = pm.Deterministic("pIC50", pic50 + pic50_lower)
+                hill = 1
+                sat = 0
+                remove = ["xsigma", "xpIC50"]
+                
+            elif model_number == 2:  # Single-level
+                pic50 = pm.Exponential("xpIC50", lam=pic50_rate)
+                pic50_shift = pm.Deterministic("pIC50", pic50 + pic50_lower)
+                loghill = pm.Logistic("xlogHill", mu=loghill_mu, s=loghill_s)
+                hill = pm.Deterministic("Hill", pm.math.exp(loghill))
+                sat = 0
+                remove = ["xsigma", "xpIC50", "xlogHill"]
+                
+            elif model_number == 3:  # Single-level
+                pic50 = pm.Exponential("xpIC50", lam=pic50_rate)
+                pic50_shift = pm.Deterministic("pIC50", pic50 + pic50_lower)
+                loghill = pm.Logistic("xlogHill", mu=loghill_mu, s=loghill_s)
+                hill = pm.Deterministic("Hill", pm.math.exp(loghill))
+                sat = pm.Uniform("Saturation", lower=sat_lower, upper=sat_upper)
+                remove = ["xsigma", "xpIC50", "xlogHill"]
+                
+            elif model_number == 4:  # Hierarchical
+                hill = 1
+                sat = 0
+                mu = pm.Gamma("xmu", alpha=mu_shape, beta=mu_rate)
+                mu_shift = pm.Deterministic(r"$\mu$", mu + mu_lower)
+                s = pm.Gamma("xs", alpha=s_shape, beta=s_rate)
+                s_shift = pm.Deterministic("s", s + s_lower)
+                pic50 = pm.Logistic("pIC50", mu=mu_shift, s=s_shift, shape=self.n_expts)
+                pic50_shift = pic50[self.expt_labels]
+                remove = ["xsigma", "xmu", "xs"]
+                
+            elif model_number == 5:  # Hierarchical
+                sat = 0
+                mu = pm.Gamma("xmu", alpha=mu_shape, beta=mu_rate)
+                mu_shift = pm.Deterministic(r"$\mu$", mu + mu_lower)
+                s = pm.Gamma("xs", alpha=s_shape, beta=s_rate)
+                s_shift = pm.Deterministic("s", s + s_lower)
+                pic50 = pm.Logistic("pIC50", mu=mu_shift, s=s_shift, shape=self.n_expts)
+                pic50_shift = pic50[self.expt_labels]
+                
+                alpha = pm.Gamma(r"$\alpha$", alpha=alpha_shape, beta=alpha_rate)
+                beta = pm.Gamma("xbeta", alpha=beta_shape, beta=beta_rate)
+                beta_shift = pm.Deterministic(r"$\beta$", beta + beta_lower)
+                loghill = pm.Logistic("xlogHill", mu=alpha, s=beta_shift,
+                                      shape=self.n_expts)
+                xhill = pm.Deterministic("Hill", pm.math.exp(loghill))
+                hill = xhill[self.expt_labels]
+                remove = ["xsigma", "xmu", "xs", "xbeta", "xlogHill"]
+                
+            elif model_number == 6:  # Hierarchical
+                sat = pm.Uniform("Saturation", lower=sat_lower, upper=sat_upper)
+                mu = pm.Gamma("xmu", alpha=mu_shape, beta=mu_rate)
+                mu_shift = pm.Deterministic(r"$\mu$", mu + mu_lower)
+                s = pm.Gamma("xs", alpha=s_shape, beta=s_rate)
+                s_shift = pm.Deterministic("s", s + s_lower)
+                pic50 = pm.Logistic("pIC50", mu=mu_shift, s=s_shift, shape=self.n_expts)
+                pic50_shift = pic50[self.expt_labels]
+                
+                alpha = pm.Gamma(r"$\alpha$", alpha=alpha_shape, beta=alpha_rate)
+                beta = pm.Gamma("xbeta", alpha=beta_shape, beta=beta_rate)
+                beta_shift = pm.Deterministic(r"$\beta$", beta + beta_lower)
+                loghill = pm.Logistic("xlogHill", mu=alpha, s=beta_shift,
+                                      shape=self.n_expts)
+                xhill = pm.Deterministic("Hill", pm.math.exp(loghill))
+                hill = xhill[self.expt_labels]
+                remove = ["xsigma", "xmu", "xs", "xbeta", "xlogHill"]
+            
+            # Data likelihood, shared by all models.
+            pred = dr.per_cent_block(self.concs, hill, pic50_shift, sat)
+            obs = pm.Normal("y", mu=pred, sigma=sigma_shift,
+                            observed=self.responses)
+        
+        return model, remove
     
-        if model_number == 1:  # Single-level
-            pic50 = pm.Exponential("xpIC50", lam=pic50_rate)
-            pic50_shift = pm.Deterministic("pIC50", pic50 + pic50_lower)
-            hill = 1
-            sat = 0
-            remove = ["xsigma", "xpIC50"]
-        elif model_number == 2:  # Single-level
-            pic50 = pm.Exponential("xpIC50", lam=pic50_rate)
-            pic50_shift = pm.Deterministic("pIC50", pic50 + pic50_lower)
-            loghill = pm.Logistic("xlogHill", mu=loghill_mu, s=loghill_s)
-            hill = pm.Deterministic("Hill", pm.math.exp(loghill))
-            sat = 0
-            remove = ["xsigma", "xpIC50", "xlogHill"]
-        elif model_number == 3:  # Single-level
-            pic50 = pm.Exponential("xpIC50", lam=pic50_rate)
-            pic50_shift = pm.Deterministic("pIC50", pic50 + pic50_lower)
-            loghill = pm.Logistic("xlogHill", mu=loghill_mu, s=loghill_s)
-            hill = pm.Deterministic("Hill", pm.math.exp(loghill))
-            sat = pm.Uniform("Saturation", lower=sat_lower, upper=sat_upper)
-            remove = ["xsigma", "xpIC50", "xlogHill"]
-        elif model_number == 4:  # Hierarchical
-            hill = 1
-            sat = 0
-            mu = pm.Gamma("xmu", alpha=mu_shape, beta=mu_rate)
-            mu_shift = pm.Deterministic(r"$\mu$", mu + mu_lower)
-            s = pm.Gamma("xs", alpha=s_shape, beta=s_rate)
-            s_shift = pm.Deterministic("s", s + s_lower)
-            pic50 = pm.Logistic("pIC50", mu=mu_shift, s=s_shift, shape=n_expts)
-            pic50_shift = pic50[expt_labels]
-            remove = ["xsigma", "xmu", "xs"]
-        elif model_number == 5:  # Hierarchical
-            sat = 0
-            mu = pm.Gamma("xmu", alpha=mu_shape, beta=mu_rate)
-            mu_shift = pm.Deterministic(r"$\mu$", mu + mu_lower)
-            s = pm.Gamma("xs", alpha=s_shape, beta=s_rate)
-            s_shift = pm.Deterministic("s", s + s_lower)
-            pic50 = pm.Logistic("pIC50", mu=mu_shift, s=s_shift, shape=n_expts)
-            pic50_shift = pic50[expt_labels]
-            
-            alpha = pm.Gamma(r"$\alpha$", alpha=alpha_shape, beta=alpha_rate)
-            beta = pm.Gamma("xbeta", alpha=beta_shape, beta=beta_rate)
-            beta_shift = pm.Deterministic(r"$\beta$", beta + beta_lower)
-            loghill = pm.Logistic("xlogHill", mu=alpha, s=beta_shift,
-                                  shape=n_expts)
-            xhill = pm.Deterministic("Hill", pm.math.exp(loghill))
-            hill = xhill[expt_labels]
-            remove = ["xsigma", "xmu", "xs", "xbeta", "xlogHill"]
-        elif model_number == 6:  # Hierarchical
-            sat = pm.Uniform("Saturation", lower=sat_lower, upper=sat_upper)
-            mu = pm.Gamma("xmu", alpha=mu_shape, beta=mu_rate)
-            mu_shift = pm.Deterministic(r"$\mu$", mu + mu_lower)
-            s = pm.Gamma("xs", alpha=s_shape, beta=s_rate)
-            s_shift = pm.Deterministic("s", s + s_lower)
-            pic50 = pm.Logistic("pIC50", mu=mu_shift, s=s_shift, shape=n_expts)
-            pic50_shift = pic50[expt_labels]
-            
-            alpha = pm.Gamma(r"$\alpha$", alpha=alpha_shape, beta=alpha_rate)
-            beta = pm.Gamma("xbeta", alpha=beta_shape, beta=beta_rate)
-            beta_shift = pm.Deterministic(r"$\beta$", beta + beta_lower)
-            loghill = pm.Logistic("xlogHill", mu=alpha, s=beta_shift,
-                                  shape=n_expts)
-            xhill = pm.Deterministic("Hill", pm.math.exp(loghill))
-            hill = xhill[expt_labels]
-            remove = ["xsigma", "xmu", "xs", "xbeta", "xlogHill"]
-        
-        # Data likelihood, shared by all models.
-        pred = dr.per_cent_block(concs, hill, pic50_shift, sat)
-        obs = pm.Normal("y", mu=pred, sigma=sigma_shift, observed=responses)
-        
-    def get_sample(model_number, trace, sample):
+    def plot_sample_curves(self, output_dir, fig_prefix, model_number, samples,
+                           trace):
+        if (1 <= model_number <= 3):
+            self.plot_sample_curves_pooled(output_dir, fig_prefix,
+                                           model_number, samples, trace)
+        elif (4 <= model_number <= 6):
+            self.plot_sample_curves_unpooled(output_dir, fig_prefix,
+                                             model_number, samples, trace)
+
+    def plot_sample_curves_pooled(self, output_dir, fig_prefix, model_number,
+                                  samples, trace):
         """
-        When we want to plot sample dose-response curves, or make predictions
-        later, we need to subsample our chains. But the existence of certain
-        parameter chains depends on our model definition, so we need to tell it
-        when to look for a parameter or when to give it a default value. We
-        could use a try/except block, but we know there will be a lot of fails,
-        so we'll just check which model it is.
+        Draw samples from posterior distribution (from the chain, really) and
+        plot dose-response curves, constructing a probability distribution of the
+        'true' dose-response behaviour.
+        
+        Need to pass the function get_sample as an argument so it knows how to
+        sample parameters that aren't there. This was done to try and keep the
+        model definition script as separate as possible from the rest.
         """
-        pic50 = trace["pIC50"][sample]
+        fig_file = f"{fig_prefix}_sample_curves.png"
+        f_out = os.path.join(output_dir, fig_file)
+        fig, ax = plt.subplots(1, 1, figsize=(5, 4))
+        xmin = floor(np.log10(np.min(self.concs)))
+        xmax = ceil(np.log10(np.max(self.concs))) + 2
+        x = np.logspace(xmin, xmax, 101)
+        ax.grid()
+        ax.set_xscale("log")
+        ax.set_xlim(10**xmin, 10**xmax)
+        ax.set_ylim(0, 100)
+        pic50s = trace["pIC50"][samples]
         if model_number == 1:
-            hill = 1
-            saturation = 0
+            hills = (1 for s in range(samples.size))
+            saturations = (0 for s in range(samples.size))
         elif model_number == 2:
-            hill = trace["Hill"][sample]
-            saturation = 0
+            hills = trace["Hill"][samples]
+            saturations = (0 for s in range(samples.size))
         elif model_number == 3:
-            hill = trace["Hill"][sample]
-            saturation = trace["Saturation"][sample]
-        return pic50, hill, saturation
-        
-    return model, remove, get_sample
+            hills = trace["Hill"][samples]
+            saturations = trace["Saturation"][samples]
+        for pic50, hill, saturation in zip(pic50s, hills, saturations):
+            pred = dr.per_cent_block(x, hill, pic50, saturation)
+            ax.plot(x, pred, color="k", alpha=0.01)
+        for i in sorted(set(self.expt_labels)):
+            which = np.where(self.expt_labels == i)[0]
+            ax.scatter(self.concs[which], self.responses[which], s=100, clip_on=False,
+                       zorder=10)
+        ax.set_xlabel(f"{self.drug} concentration ($\mu$M)")
+        ax.set_ylabel(f"{self.channel} block (%)")
+        fig.tight_layout()
+        fig.savefig(f_out)
+        plt.close()
+
+    def plot_sample_curves_unpooled(self, output_dir, fig_prefix, model_number,
+                                    samples, trace):
+        pass
+
+
+
+
